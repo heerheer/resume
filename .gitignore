@@ -21,6 +21,10 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
+
+# internal planning docs
+.trae/
 
 # vercel
 .vercel
@@ -29,4 +33,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .vscode/
-.kiro/
+.kiro/.edgeone/.token
+.edgeone/
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  
