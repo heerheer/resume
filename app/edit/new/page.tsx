@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import ResumeBuilder from "@/components/resume-builder"
 import type { ResumeData } from "@/types/resume"
 import { createEntryFromData, StorageError, getResumeById } from "@/lib/storage"
+import { autoSyncIfEnabled } from "@/lib/sync"
 import { useToast } from "@/hooks/use-toast"
 
 export default function NewEditPage() {
@@ -50,6 +51,12 @@ function NewEditPageContent() {
     try {
       const entry = createEntryFromData(current)
       toast({ title: "保存成功", description: `已创建：${entry.resumeData.title}` })
+      // 启用云同步密钥时自动同步（fire-and-forget，失败提示，不阻塞跳转）
+      void autoSyncIfEnabled(entry.id, current).then((r) => {
+        if (!r.synced && r.message) {
+          toast({ title: "云同步失败", description: r.message, variant: "destructive" })
+        }
+      })
       router.replace(`/edit/${entry.id}`)
     } catch (e: unknown) {
       if (e instanceof StorageError && e.code === "QUOTA_EXCEEDED") {

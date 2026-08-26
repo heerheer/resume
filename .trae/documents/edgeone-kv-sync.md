@@ -1,8 +1,10 @@
-# EdgeOne KV 云同步功能实施计划
+# EdgeOne Blob 云同步功能实施计划
 
 ## 概要
 
-为简历应用添加基于 EdgeOne KV 的云同步能力：用户在主页顶部输入「密钥」，验证成功后按简历编号（本地 `StoredResume.id`）与云端同步。已同步的简历显示云朵徽标；本地独有的简历显示 sync 按钮；云端与本地 MD5 不一致时显示红色冲突警告并提供冲突解决（使用云端/使用本地/查看云端/查看本地）。
+为简历应用添加基于 EdgeOne Blob（Cloud Functions + `@edgeone/pages-blob`）的云同步能力：用户在主页顶部输入「密钥」，验证成功后按简历编号（本地 `StoredResume.id`）与云端同步。已同步的简历显示云朵徽标；本地独有的简历显示 sync 按钮；云端与本地 MD5 不一致时显示红色冲突警告并提供冲突解决（使用云端/使用本地/查看云端/查看本地）。
+
+> 修订：原方案使用 KV（Edge Functions），受 **1MB 请求体限制**；改用 **Blob（Cloud Functions，Node.js 20）**，请求体上限提升到 **6MB**，且 Blob 命名空间首次调用自动创建（无需控制台绑定）、可用 `node:crypto` 计算 MD5、`consistency: "strong"` 消除 KV 的 60s 最终一致性问题。
 
 - 密钥验证：服务端固定密钥模式（环境变量 `SYNC_PASSWORD`），未配置时退化为「任意密钥均有效」（每个密钥独立数据空间）。
 - 删除联动：启用密钥时，本地删除简历同步删除云端数据。
@@ -18,50 +20,40 @@
   - [components/user-center.tsx](file:///workspace/components/user-center.tsx) `handleImport` → `createEntryFromData(data)`
 - 查看入口：[app/view/[id]/page.tsx](file:///workspace/app/view/[id]/page.tsx)，客户端组件 `getResumeById(id)` 后渲染 `ResumePreview`。
 - EdgeOne 约束（来自 edgeone-makers-tools skill）：
-  - KV **仅**在 Edge Functions（`edge-functions/` 目录，V8 运行时）可用，KV 命名空间是控制台绑定的**全局变量**（不在 `context.env`）；无 npm、无 Node 内建、无 `Response.json()`；请求体上限 1MB；`crypto.subtle` 可用（不支持 MD5）。
-  - 本地测试须用 `edgeone makers dev -n <项目名> --skip-env-sync`（项目需 link，KV 需在控制台绑定）；CLI 前置 `PAGES_SOURCE=skills`；curl 验证用 `curl --noproxy '*' http://127.0.0.1:8088/...`。
-  - 本项目部署到非 EdgeOne 平台（如 Vercel）时 edge-functions 不生效，前端需对同步 API 不可用做优雅降级。
+  - **请求体限制**：Edge Functions（KV）1 MB；Cloud Functions（Node.js 20）6 MB。故采用 Blob。
+  - Blob **仅**在 Cloud Functions（`cloud-functions/` 目录，Node.js v20，支持 npm）可用，SDK 为 `@edgeone/pages-blob@^0.0.14`（项目根 package.json 安装，平台自动构建）；命名空间 `getStore({ name, consistency: "strong" })` 首次调用自动创建；key 支持 `/` 前缀分层；list 返回 `{ blobs: [{ key, etag }] }`。
+  - 本地测试须用 `edgeone makers dev -n <项目名> --skip-env-sync`（项目需 link，Blob 需登录态）；CLI 前置 `PAGES_SOURCE=skills`；curl 验证用 `curl --noproxy '*' http://127.0.0.1:8088/...`。
+  - 本项目部署到非 EdgeOne 平台（如 Vercel）时 cloud-functions 不生效，前端需对同步 API 不可用做优雅降级。
 
 ## 方案设计
 
-### 数据模型（KV）
+### 数据模型（Blob）
 
-- KV 命名空间绑定变量名：**`resume_kv`**（用户在 EdgeOne 控制台创建命名空间并绑定到项目，变量名必须是 `resume_kv`）。
-- 数据隔离：`scope = sha256hex(key + SYNC_SALT)`（SYNC_SALT 为环境变量，默认空串）。KV key 只用字母数字与下划线：`kvKey = "<scope>_<uuid去掉连字符>"`。
-- KV value（JSON 字符串）：
+- Blob store：`getStore({ name: "resume-sync", consistency: "strong" })`（首次调用自动创建命名空间，无需控制台配置）。
+- 数据隔离：`scope = sha256hex(key + SYNC_SALT)`（SYNC_SALT 为环境变量，默认空串，Node `node:crypto` 计算）。
+- Blob key（支持 `/` 前缀）：`resumes/<scope>/<id>`，其中 `id` 为完整 uuid（PUT 时校验 `/^[A-Za-z0-9-]{1,64}$/` 防路径穿越）。
+- Blob value：**`payload` 原样字符串**（客户端 `JSON.stringify(resumeData)` 的结果，不做任何包装改写）。MD5 由服务端读取时用 `createHash("md5")` 现算。
+- **MD5 一致性核心规则**：payload 是客户端 `JSON.stringify(resumeData)` 的原样字符串，服务端原样存储并计算 `md5(payload)`。本地比较时对 `entry.resumeData` 重新 `JSON.stringify` 后取 MD5（JSON round-trip 字节稳定）。「使用云端」拉回时必须原样保存云端 payload 解析后的对象，不做任何字段改写，保证 MD5 重新一致。
 
-```json
-{
-  "id": "<完整uuid>",
-  "md5": "<payload的MD5>",
-  "updatedAt": "<ISO时间>",
-  "payload": "<resumeData的紧凑JSON字符串>"
-}
-```
+### API 设计（Cloud Functions，同源无 CORS）
 
-- **MD5 一致性核心规则**：`payload` 是客户端 `JSON.stringify(resumeData)` 的原样字符串，服务端原样存储并计算 `md5(payload)`。本地比较时对 `entry.resumeData` 重新 `JSON.stringify` 后取 MD5（JSON round-trip 字节稳定）。「使用云端」拉回时必须原样保存云端 payload 解析后的对象，不做任何字段改写，保证 MD5 重新一致。
+**`cloud-functions/api/sync.js`** → `GET /api/sync?key=<密钥>`
 
-### API 设计（Edge Functions，同源无 CORS）
-
-**`edge-functions/api/sync.js`** → `GET /api/sync?key=<密钥>`
-
-- 校验密钥（见下）→ 分页 `resume_kv.list({ prefix: scope + "_" })` 并批量 get → 返回 `{ ok: true, entries: [{ id, md5, updatedAt }] }`。
+- 校验密钥（见下）→ `store.list({ prefix: "resumes/<scope>/" })` 并逐个 get → 返回 `{ ok: true, entries: [{ id, md5, updatedAt }] }`（updatedAt 从 payload JSON 中提取）。
 - 该接口同时承担「验证密钥」职责：密钥非法返回 401 `{ ok: false, error: "invalid_key" }`。
 
-**`edge-functions/api/sync/[id].js`** → `/api/sync/<id>`
+**`cloud-functions/api/sync/[id].js`** → `/api/sync/<id>`
 
 - `GET ?key=<密钥>`：读取单条 → `{ ok: true, id, md5, payload }`；不存在 404。
-- `PUT`，body `{ key, payload }`：校验 payload 为合法 JSON 字符串、长度 ≤ 1MB → 计算 md5 → `put(kvKey, record)` → `{ ok: true, id, md5, updatedAt }`。
-- `DELETE ?key=<密钥>` 或 body `{ key }`：删除对应 KV key → `{ ok: true }`。
+- `PUT`，body `{ key, payload }`：校验 payload 为合法 JSON 字符串、长度 ≤ 5MB（留安全余量）→ `store.set` → `{ ok: true, id, md5 }`。
+- `DELETE ?key=<密钥>`：删除对应 blob → `{ ok: true }`。
 
-**通用守卫（两个文件共享的行内辅助函数）**：
+**通用守卫（两个文件各自内联的辅助函数）**：
 
 1. 密钥校验：空 key → 400；`SYNC_PASSWORD` 已配置且 `key !== SYNC_PASSWORD` → 401 `invalid_key`；未配置 `SYNC_PASSWORD` 时任何非空 key 通过（独立数据空间）。
-2. 站点口令守卫：`SITE_PASSWORD` 已配置时，要求 Cookie `site_auth === sha256hex(SITE_PASSWORD)`（与 Next middleware 同算法，Web Crypto subtle），否则 401（防止绕过站点口令直接打同步 API）。
-3. KV 未绑定：`typeof resume_kv === "undefined"` → 500 `{ error: "kv_not_bound" }`。
-4. 响应统一 `new Response(JSON.stringify(...), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } })`。
-5. 每个文件内联：MD5 纯 JS 实现（RFC 1321）、sha256hex（crypto.subtle）、CORS 不需要（同源）。
-6. env 读取：`context.env.SYNC_PASSWORD / SYNC_SALT / SITE_PASSWORD`。
+2. 站点口令守卫：`SITE_PASSWORD` 已配置时，要求 Cookie `site_auth === sha256hex(SITE_PASSWORD)`（与 Next middleware 同算法，`node:crypto`），否则 401（防止绕过站点口令直接打同步 API）。
+3. 响应统一 `new Response(JSON.stringify(...), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } })`。
+4. env 读取：`context.env.SYNC_PASSWORD / SYNC_SALT / SITE_PASSWORD`。
 
 ### 环境变量（部署时给定；本地测试可设）
 
@@ -119,12 +111,12 @@
 
 ## 实施步骤
 
-1. 新增 `lib/md5.ts`、`lib/sync.ts`。
-2. 新增 `edge-functions/api/sync.js`、`edge-functions/api/sync/[id].js`（含内联 md5/sha256/守卫逻辑）。
+1. 新增 `lib/md5.ts`、`lib/sync.ts`；package.json 添加 `@edgeone/pages-blob` 依赖。
+2. 新增 `cloud-functions/api/sync.js`、`cloud-functions/api/sync/[id].js`（含内联守卫，`node:crypto` 计算 md5/sha256）。
 3. 修改 `app/edit/[id]/page.tsx`、`app/edit/new/page.tsx`（保存后自动同步）。
 4. 修改 `components/user-center.tsx`（密钥条、登录同步、编号列三种状态、冲突解决菜单、删除联动、导入联动）。
 5. 修改 `app/view/[id]/page.tsx`（`-cloud` 云端查看）。
-6. 新增 `.env.example`；更新 `README.md`（云同步章节：控制台 KV 绑定 `resume_kv`、环境变量、功能说明）。
+6. 新增 `.env.example`；更新 `README.md`（云同步章节：环境变量、功能说明）。
 
 ## 验证
 
@@ -134,7 +126,7 @@
    - `edgeone whoami` 检查登录；未登录则请用户提供 token（`-t`）或浏览器登录。
    - `PAGES_SOURCE=skills edgeone makers dev -n resume --skip-env-sync`（后台运行）。
    - curl 冒烟（`--noproxy '*' http://127.0.0.1:8088`）：
-     - `GET /api/sync?key=test` → 200 + entries（若 KV 未绑定 → 500 kv_not_bound，提示用户到控制台绑定 `resume_kv`）；
+     - `GET /api/sync?key=test` → 200 + entries（Blob 命名空间自动创建）；
      - `PUT /api/sync/<id>` 写入一条样例 payload → `GET /api/sync` 列表可见、MD5 正确；
      - `GET /api/sync/<id>` 取回 payload 与写入字节一致；
      - 错误密钥（配置 SYNC_PASSWORD 场景）→ 401。
@@ -144,8 +136,8 @@
 ## 假设与决策
 
 - 密钥即同步凭证，UI 不引入登录账号体系；密钥存 localStorage 明文（与现有本地数据同级的信任模型）。
-- KV 绑定变量名固定为 `resume_kv`（部署时在控制台绑定，本地 dev 需项目 link 后注入）。
-- Edge Function 请求体上限 1MB：超大数据（如超大头像 data-URL）同步会失败并提示，不做分片。
+- Blob store 名固定 `resume-sync`，首次调用自动创建命名空间（本地 dev 需项目 link 后可用）。
+- Cloud Function 请求体上限 6MB，客户端以 5MB 为界做守卫：超大数据（如超大头像 data-URL）同步会失败并提示，不做分片。
 - 冲突只保留「云端 or 本地」覆盖语义，无合并；「使用云端/本地」覆盖后 MD5 即一致。
 - `payload` 原样透传是 MD5 一致性的关键约束，任何一侧都不得改写 JSON 内容（包括 `updatedAt`）。
-- KV 最终一致性 ≤60s：本地刚 push 后立刻在另一设备 list 可能读旧值，属平台特性，不做额外处理。
+- Blob 使用 strong consistency（IRON RULE），本地刚 push 后立即可读，无 KV 的 60s 传播窗口。
