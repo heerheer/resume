@@ -51,8 +51,9 @@ function NewEditPageContent() {
     try {
       const entry = createEntryFromData(current)
       toast({ title: "保存成功", description: `已创建：${entry.resumeData.title}` })
-      // 启用云同步密钥时自动同步（fire-and-forget，失败提示，不阻塞跳转）
-      void autoSyncIfEnabled(entry.id, current).then((r) => {
+      // 启用云同步密钥时自动同步（fire-and-forget，失败提示，不阻塞跳转）。
+      // 推送 createEntryFromData 落库后的数据，保证与本地存储 MD5 一致
+      void autoSyncIfEnabled(entry.id, entry.resumeData).then((r) => {
         if (!r.synced && r.message) {
           toast({ title: "云同步失败", description: r.message, variant: "destructive" })
         }

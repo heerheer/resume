@@ -323,8 +323,8 @@ export default function UserCenter() {
       const entry = createEntryFromData(data)
       toast({ title: "导入成功", description: `已导入：${entry.resumeData.title}` })
       refresh()
-      // 启用云同步密钥时自动同步导入的简历
-      void autoSyncIfEnabled(entry.id, data).then((r) => {
+      // 启用云同步密钥时自动同步导入的简历。推送落库后的 entry.resumeData，保证 MD5 一致
+      void autoSyncIfEnabled(entry.id, entry.resumeData).then((r) => {
         if (!r.synced && r.message) {
           toast({ title: "云同步失败", description: r.message, variant: "destructive" })
         }
