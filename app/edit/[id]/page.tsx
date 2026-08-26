@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
 import type { ResumeData, StoredResume } from "@/types/resume"
 import { getResumeById, updateEntryData, StorageError } from "@/lib/storage"
+import { autoSyncIfEnabled } from "@/lib/sync"
 import { useToast } from "@/hooks/use-toast"
 
 export default function EditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,6 +22,13 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
     try {
       const updated = updateEntryData(id, data)
       toast({ title: "保存成功", description: new Date(updated.updatedAt).toLocaleString() })
+      // 启用云同步密钥时自动同步（失败提示，不阻塞本地保存）。
+      // 推送 updateEntryData 落库后的 merged 数据，保证与本地存储 MD5 一致，避免刚保存即被误判为冲突
+      void autoSyncIfEnabled(id, updated.resumeData).then((r) => {
+        if (!r.synced && r.message) {
+          toast({ title: "云同步失败", description: r.message, variant: "destructive" })
+        }
+      })
     } catch (e: unknown) {
       if (e instanceof StorageError && e.code === "QUOTA_EXCEEDED") {
         toast({

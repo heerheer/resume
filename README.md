@@ -7,6 +7,7 @@
 
 - **用户中心**: 首页集中管理你的简历，支持检索、排序、批量选择与删除、导入/导出
 - **本地存储**: 多份简历持久化到浏览器 `localStorage`，随开随用（支持 JSON 备份还原）
+- **云同步**: 基于 EdgeOne Blob 的多设备数据同步（密钥验证、按编号同步、冲突检测与解决）
 - **简历编辑**: 直观的界面，轻松编辑个人信息和简历内容
 - **模块化设计**: 支持添加、删除和重排简历模块
 - **实时预览**: 即时查看简历编辑效果
@@ -80,11 +81,11 @@ pnpm build
 ├── app/
 │  ├── globals.css
 │  ├── layout.tsx
-│  ├── page.tsx                         # 首页：用户中心（本地简历管理）
+│  ├── page.tsx                         # 首页：用户中心（本地简历管理 + 云同步）
 │  ├── edit/
 │  │  ├── new/page.tsx                  # 新建简历（可选携带 ?clone=ID 预填）
 │  │  └── [id]/page.tsx                 # 编辑本地已保存的简历
-│  ├── view/[id]/page.tsx               # 仅预览本地已保存的简历
+│  ├── view/[id]/page.tsx               # 仅预览本地已保存的简历（支持 <id>-cloud 云端预览）
 │  ├── pdf/preview/[filename]/page.tsx  # 在线 PDF 预览页（服务端优先，自动降级打印）
 │  ├── print/page.tsx                   # 打印专用页面（供 Chromium 渲染）
 │  ├── auth/page.tsx                    # 访问口令输入页（可选）
@@ -95,6 +96,10 @@ pnpm build
 │        ├── health/route.ts            # 健康检查（尝试启动 headless 浏览器）
 │        ├── [filename]/route.ts        # 生成并缓存 PDF（POST→303→GET 下载/预览）
 │        └── route.ts                   # 直接生成并返回 PDF（Puppeteer + Chromium）
+├── cloud-functions/
+│  └── api/
+│     ├── sync.js                       # 云同步 API（EdgeOne Cloud Function）：列出/验证密钥
+│     └── sync/[id].js                  # 云同步 API：单条简历读取/推送/删除（EdgeOne Blob）
 ├── components/
 │  ├── user-center.tsx                  # 用户中心（首页）
 │  ├── export-button.tsx                # 一键导出（PDF/图片/JSON）
@@ -108,7 +113,9 @@ pnpm build
 │  └── use-toast.ts
 ├── lib/
 │  ├── utils.ts                         # 通用工具（默认模板、导出工具等）
-│  └── storage.ts                       # 本地存储封装（localStorage）
+│  ├── storage.ts                       # 本地存储封装（localStorage）
+│  ├── md5.ts                           # 纯 TS MD5 实现（云同步摘要比对）
+│  └── sync.ts                          # 云同步客户端（EdgeOne Blob API 封装）
 ├── styles/
 │  ├── globals.css
 │  ├── print.css                        # 打印样式
@@ -201,6 +208,44 @@ export interface ResumeData {
 
 项目使用 Tailwind CSS 进行样式管理，可按需扩展样式与主题（见样式与组件代码）。
 
+
+## 云同步（EdgeOne Blob）
+
+数据存储在 EdgeOne Blob（需部署到 EdgeOne Pages/Makers，本地数据仍以 localStorage 为主）。
+
+### 使用方式
+
+1. 在主页顶部的「云同步」输入框中输入密钥并点击「验证并启用」
+2. 验证成功后：
+   - 云端存在而本地缺失的简历会自动拉回本地
+   - 已同步的简历在编号旁显示云朵图标（hover 提示「云同步」）
+   - 本地存在而云端没有的简历显示 `sync` 图标按钮，点击后上传
+   - 启用密钥后，每次保存/导入简历都会自动同步到云端
+   - 删除本地简历时，云端对应数据也会被删除
+3. 冲突处理：云端返回的 MD5 与本地数据 MD5 不一致时，编号旁显示红色警告，操作列出现「冲突解决」菜单（使用云端 / 使用本地 / 查看云端 / 查看本地）。「查看云端」会以 `<编号>-cloud` 打开一个新的简历查看视图
+
+### 环境变量（可选）
+
+- `SYNC_PASSWORD`：固定密钥。配置后用户输入的密钥必须与其一致；未配置时任意非空密钥均有效（不同密钥的数据互相隔离）
+- `SYNC_SALT`：数据隔离命名空间的哈希加盐，防止猜测
+- `SITE_PASSWORD`：配置后云同步 API 同时校验站点访问口令 Cookie
+
+### 接口（EdgeOne Cloud Functions）
+
+- `GET /api/sync?key=<密钥>`：列出云端全部简历（含 MD5），并用于密钥验证
+- `GET /api/sync/<id>?key=<密钥>`：读取单条云端简历
+- `PUT /api/sync/<id>`：推送/覆盖单条简历（body: `{ key, payload }`）
+- `DELETE /api/sync/<id>?key=<密钥>`：删除单条云端简历
+
+### 本地开发（EdgeOne）
+
+```bash
+npm i -g edgeone@latest
+edgeone login
+PAGES_SOURCE=skills edgeone makers dev -n <项目名> --skip-env-sync
+# 测试 API（注意 sandbox 代理）
+curl --noproxy '*' 'http://127.0.0.1:8088/api/sync?key=test'
+```
 
 ## 访问密码保护
 
