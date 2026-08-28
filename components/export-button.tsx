@@ -336,7 +336,7 @@ export function ExportButton({
           size={size}
           disabled={isExporting}
           className={cn(
-            "gap-2",
+            "gap-2 cursor-pointer",
             className,
             variant === "default" ? "bg-green-600 hover:bg-green-700 text-white" : undefined
           )}

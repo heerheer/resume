@@ -45,7 +45,7 @@ const ViewModeSelector = memo(
             flex items-center gap-2 min-w-[100px] justify-center
             ${viewMode === mode.key
                 ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/70"
               }
           `}
           >
@@ -143,7 +143,7 @@ export default function ResumeBuilder({ initialData, template = "default", onCha
             <Button
               size="sm"
               onClick={() => onSave?.(editorState.resumeData)}
-              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+              className="gap-2 cursor-pointer bg-green-600 hover:bg-green-700 text-white"
             >
               <Icon icon="mdi:content-save" className="w-4 h-4" />
               保存
