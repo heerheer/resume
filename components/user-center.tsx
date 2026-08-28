@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -636,8 +637,11 @@ export default function UserCenter() {
                         resumeData={it.resumeData}
                         variant="ghost"
                       />
-                      <Button variant="ghost" className="gap-2" onClick={() => router.push(`/edit/${it.id}`)}>
-                        <Icon icon="mdi:pencil" className="w-4 h-4" /> 编辑
+                      {/* 用 Link 以便预取 /edit 路由 chunk，首次点击时配合 loading.tsx 骨架屏立即进入编辑页 */}
+                      <Button variant="ghost" className="gap-2" asChild>
+                        <Link href={`/edit/${it.id}`}>
+                          <Icon icon="mdi:pencil" className="w-4 h-4" /> 编辑
+                        </Link>
                       </Button>
                       <Button variant="ghost" className="gap-2" onClick={() => handleClone(it.id)}>
                         <Icon icon="mdi:content-copy" className="w-4 h-4" /> 克隆
