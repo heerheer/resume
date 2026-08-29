@@ -260,15 +260,22 @@
 /* 添加简历编辑器专用样式 */
 @layer components {
   .resume-editor {
-    @apply h-screen flex flex-col;
+    @apply h-dvh flex flex-col;
   }
 
   .editor-toolbar {
-    @apply border-b bg-card px-6 py-3 flex items-center justify-between;
+    @apply border-b bg-card px-6 py-3 flex items-center justify-between gap-2;
   }
 
   .editor-content {
-    @apply flex-1 flex overflow-hidden;
+    @apply flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0;
+  }
+
+  /* 移动端内容底部预留安全区，避免被底部切换栏遮挡 */
+  @media (max-width: 767px) {
+    .editor-content {
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    }
   }
 
   .editor-panel {
@@ -280,7 +287,26 @@
   }
 
   .resume-preview {
-    @apply w-3xl mx-auto bg-white shadow-lg p-8;
+    @apply w-full max-w-3xl mx-auto bg-white shadow-lg p-4 md:p-8;
+  }
+
+  /* 移动端底部视图切换栏：固定悬浮在编辑器底部居中（适配 iOS 安全区） */
+  .mobile-view-tabs {
+    @apply fixed left-1/2 -translate-x-1/2 z-20;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* 悬浮操作栏（添加行/删除）：桌面 hover 控制显隐，触屏常显 */
+  .floating-action-bar {
+    transition: opacity 0.15s ease;
+  }
+
+  @media (hover: none) {
+    .floating-action-bar {
+      display: flex !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
   }
 
   /* 预览样式移至 styles/print.css，避免重复定义 */

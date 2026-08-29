@@ -488,8 +488,8 @@ function PersonalInfoItemEditor({
         </DialogContent>
       </Dialog>
 
-      {/* 单行布局：标签 | 类型 | 值输入 | 删除 | 拖拽手柄 */}
-      <div className="flex-1 flex items-end gap-2 min-w-0">
+      {/* 单行布局：标签 | 类型 | 值输入 | 删除 | 拖拽手柄（窄屏自动换行） */}
+      <div className="flex-1 flex flex-wrap items-end gap-2 min-w-0">
         {/* 标签 */}
         <div className="flex-[0_0_auto] min-w-[80px] max-w-[120px]">
           <div className="h-8 flex flex-col justify-end">

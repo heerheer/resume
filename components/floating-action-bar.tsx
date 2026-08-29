@@ -6,12 +6,13 @@ interface FloatingActionBarProps {
   onAddRow: (columns: 1 | 2 | 3 | 4, afterRowId?: string) => void
   onAddTagsRow?: () => void
   onDelete: () => void
+  className?: string
 }
 
-export default function FloatingActionBar({ onAddRow, onAddTagsRow, onDelete }: FloatingActionBarProps) {
+export default function FloatingActionBar({ onAddRow, onAddTagsRow, onDelete, className }: FloatingActionBarProps) {
   return (
     <TooltipProvider>
-      <div className="absolute top-full right-0 flex items-center gap-0 rounded shadow-md overflow-hidden z-10">
+      <div className={`floating-action-bar absolute top-full right-0 flex items-center gap-0 rounded shadow-md overflow-hidden z-10 ${className ?? ""}`}>
         {/* 添加一行 */}
         <Tooltip>
           <TooltipTrigger asChild>
