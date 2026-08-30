@@ -456,11 +456,14 @@ function EmptyRowPlaceholder({ onAddRow, onAddTagsRow }: EmptyRowPlaceholderProp
       onMouseLeave={() => setHoveredEmpty(false)}
     >
       <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg relative">
-        <p className="text-sm">暂无内容，悬浮到此处添加行</p>
+        <p className="text-sm">暂无内容，添加一行开始编辑</p>
 
-        {hoveredEmpty && (
-          <FloatingActionBar onAddRow={onAddRow} onAddTagsRow={onAddTagsRow} onDelete={() => { }} />
-        )}
+        <FloatingActionBar
+          className={hoveredEmpty ? "" : "opacity-0 pointer-events-none"}
+          onAddRow={onAddRow}
+          onAddTagsRow={onAddTagsRow}
+          onDelete={() => { }}
+        />
       </div>
     </div>
   )
@@ -514,13 +517,12 @@ function ContentRowEditor({ row, onUpdate, onRemove, onUpdateElement, onAddRow, 
             </div>
           )}
 
-          {hoveredRow && (
-            <FloatingActionBar
-              onAddRow={(columns) => onAddRow(columns, row.id)}
-              onAddTagsRow={onAddTagsRow}
-              onDelete={() => setShowDeleteConfirm(true)}
-            />
-          )}
+          <FloatingActionBar
+            className={hoveredRow ? "" : "opacity-0 pointer-events-none"}
+            onAddRow={(columns) => onAddRow(columns, row.id)}
+            onAddTagsRow={onAddTagsRow}
+            onDelete={() => setShowDeleteConfirm(true)}
+          />
         </div>
       </div>
 
