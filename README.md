@@ -14,6 +14,7 @@
 - **PDF 导出**: 优先由服务端 Chromium 渲染同一份 HTML/CSS 生成干净 PDF；不可用时自动降级浏览器打印，并给出引导
 - **图片导出**: 支持导出为 PNG、JPG、WEBP、SVG 等图片格式
 - **富文本支持**: 支持自由设置文本格式，如字体、文字大小、颜色、对齐方式以及是否加粗、URL 链接等
+- **AI 优化**: 多行输入框右下角提供「AI 优化」按钮，内置 ASu-skills（great-resume 简历提升）把经历改写为更贴合招聘方的表达，弹窗预览确认后回填
 - **自适应**: 支持不同模块/布局自由组合，自动调整元素尺寸
 
 <p align="left">
@@ -192,6 +193,18 @@ export interface ResumeData {
 - `POST /api/pdf/:filename`：传入`{ resumeData }`，生成后返回`303`到`GET /api/pdf/:filename?token=...`（便于内联预览/下载）
 - `GET /api/pdf/:filename?token=...`：短期缓存（约 5 分钟）内联返回 PDF
 - `GET /api/image-proxy?url=...`：图片代理，导出图片时用于规避跨域与画布污染
+
+### AI 优化（多行输入框「AI 优化」按钮）
+
+内置 [ASu-skills](https://github.com/Hisn00w/ASu-skills)（great-resume 简历提升技能），对输入框中的单段文本做「酥化」改写。流程：点击右下角按钮 → 下拉选择「使用 AsuSkills 优化」 → 调用后端 → 弹窗预览「原文 vs 优化后」 → 确认后回填。
+
+后端通过环境变量配置一个 OpenAI 兼容的 Chat Completions 端点（默认指 Oracle OCI Generative AI 的 OpenAI 兼容端点）：
+
+- `AI_API_BASE_URL`：OpenAI 兼容端点地址（默认 `https://inference.generativeai.us-chicago-1.oci.oraclecloud.com/openai/v1`）
+- `AI_API_KEY`：API Key（必填，未配置时接口返回 501）
+- `AI_MODEL`：模型 id（默认 `cohere.command-a-03-2025`，可换 gpt-oss / llama 等 OCI 支持的模型）
+
+也可把 `AI_API_BASE_URL` 指向任意 OpenAI 兼容网关（OneAPI / DeepSeek / 本地 vLLM 等）。参考 `.env.example`。
 ### 部署到 Vercel
 
 - 仅支持 Node.js Runtime 的 Serverless Functions（不是 Edge）。

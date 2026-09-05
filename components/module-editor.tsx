@@ -389,6 +389,7 @@ function ModuleItem({
                       onUpdateElement={(elementId, updates) => updateElement(row.id, elementId, updates)}
                       onAddRow={addRow}
                       onAddTagsRow={() => addTagsRow(row.id)}
+                      moduleTitle={module.title}
                     />
                   ))
               )}
@@ -436,6 +437,7 @@ interface ContentRowEditorProps {
   onUpdateElement: (elementId: string, updates: Partial<ModuleContentElement>) => void
   onAddRow: (columns: 1 | 2 | 3 | 4, afterRowId?: string) => void
   onAddTagsRow?: () => void
+  moduleTitle?: string
 }
 
 /**
@@ -466,7 +468,7 @@ function EmptyRowPlaceholder({ onAddRow, onAddTagsRow }: EmptyRowPlaceholderProp
   )
 }
 
-function ContentRowEditor({ row, onUpdate, onRemove, onUpdateElement, onAddRow, onAddTagsRow }: ContentRowEditorProps) {
+function ContentRowEditor({ row, onUpdate, onRemove, onUpdateElement, onAddRow, onAddTagsRow, moduleTitle }: ContentRowEditorProps) {
   const [hoveredRow, setHoveredRow] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -508,6 +510,7 @@ function ContentRowEditor({ row, onUpdate, onRemove, onUpdateElement, onAddRow, 
                     element={element}
                     onChange={(updates) => onUpdateElement(element.id, updates)}
                     placeholder="输入内容..."
+                    moduleTitle={moduleTitle}
                   />
                 </div>
               ))}
