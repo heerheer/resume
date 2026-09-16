@@ -1,0 +1,40 @@
+{
+  "name": "asu",
+  "description": "ASu 中文求职工作流插件市场。",
+  "owner": {
+    "name": "Hisn0w",
+    "url": "https://github.com/Hisn00w"
+  },
+  "plugins": [
+    {
+      "name": "asu-skills",
+      "source": "./",
+      "displayName": "ASu-skills",
+      "description": "用 /contributor、/evidence-recap、/project-guide、/great-resume、/make-resume、/job-apply、/interview、/offer 完成中文求职工作流。",
+      "version": "0.3.0",
+      "author": {
+        "name": "Hisn0w",
+        "url": "https://github.com/Hisn00w"
+      },
+      "homepage": "https://github.com/Hisn00w/ASu-skills",
+      "repository": "https://github.com/Hisn00w/ASu-skills",
+      "license": "MIT",
+      "category": "Productivity",
+      "keywords": [
+        "project-guide",
+        "project-analysis",
+        "resume",
+        "interview",
+        "job-search",
+        "job-application",
+        "browser-automation",
+        "career",
+        "open-source",
+        "contributor",
+        "chinese",
+        "great-resume",
+        "evidence-recap"
+      ]
+    }
+  ]
+}

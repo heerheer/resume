@@ -13,12 +13,15 @@ import { Plugin } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import type { ModuleContentElement, JSONContent } from "@/types/resume"
 import { useToolbarManager } from "./rich-text-toolbar-manager"
+import AiOptimizeButton from "./ai-optimize"
 
 interface RichTextInputProps {
   element: ModuleContentElement
   onChange: (updates: Partial<ModuleContentElement>) => void
   placeholder?: string
   showBorder?: boolean
+  /** 所属简历模块标题，作为 AI 优化的语境（可选） */
+  moduleTitle?: string
 }
 
 // Custom extension for font size
@@ -97,7 +100,8 @@ export default function RichTextInput({
   element,
   onChange,
   placeholder = "输入内容...",
-  showBorder = true
+  showBorder = true,
+  moduleTitle,
 }: RichTextInputProps) {
   const { registerEditor, unregisterEditor } = useToolbarManager()
 
@@ -171,11 +175,12 @@ export default function RichTextInput({
   }
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <EditorContent
         editor={editor}
         placeholder={placeholder}
       />
+      <AiOptimizeButton editor={editor} moduleTitle={moduleTitle} />
     </div>
   )
 }

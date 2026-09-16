@@ -1,0 +1,58 @@
+{
+  "name": "asu-skills",
+  "version": "0.4.0",
+  "description": "中文求职工作流 skills：开源贡献、AI 编程对话复盘、项目导学面经、简历提升、默认使用 ASu 模板的可编辑简历制作、简历投递填写和秋招进度管理（DeepSeek Harness 插件包）。",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "export:pdf": "node scripts/export-resume-pdf.mjs",
+    "build:templates": "node scripts/inline-template.mjs --all dist/templates",
+    "validate:skills": "python3 scripts/validate_skills.py",
+    "test:python": "python3 -m unittest discover -s tests -v",
+    "test": "node --test"
+  },
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "skills",
+    "scripts",
+    "assets",
+    "references",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "agent-skill",
+    "evidence-recap",
+    "project-guide",
+    "project-analysis",
+    "resume",
+    "job-search",
+    "job-application",
+    "browser-automation",
+    "career",
+    "open-source",
+    "chinese",
+    "great-resume"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hisn00w/ASu-skills.git"
+  },
+  "homepage": "https://github.com/Hisn00w/ASu-skills",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

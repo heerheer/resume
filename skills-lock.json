@@ -6,6 +6,12 @@
       "sourceType": "github",
       "skillPath": "SKILL.md",
       "computedHash": "6846a39a565cd4155a3212ab4d290b404f99438ff6bb4b2a75129c0d25c16d65"
+    },
+    "asu-skills": {
+      "source": "Hisn00w/ASu-skills",
+      "sourceType": "github",
+      "skillPath": "skills/great-resume/SKILL.md",
+      "computedHash": "82ccf4a504f0498072ea1a46a42b4b9bd035129ca27d132a66db244897b4067f"
     }
   }
 }
