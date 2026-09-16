@@ -55,6 +55,7 @@ export default function UserCenter() {
   const [cloudMap, setCloudMap] = useState<Map<string, CloudEntry> | null>(null)
   const [keyVerifying, setKeyVerifying] = useState(false)
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set())
+  const [dataRefreshing, setDataRefreshing] = useState(false)
 
   const connected = syncKey !== null && cloudMap !== null
 
@@ -100,6 +101,15 @@ export default function UserCenter() {
     return pulled
   }, [])
 
+  const loadCloudToLocal = useCallback(async (key: string) => {
+    const entries = await listCloud(key)
+    setSyncKeyState(key)
+    setCloudMap(new Map(entries.map((e) => [e.id, e])))
+    const pulled = await pullMissingToLocal(key, entries)
+    refresh()
+    return { entries, pulled }
+  }, [pullMissingToLocal, refresh])
+
   // 挂载时若本地存有密钥：验证并启用云同步，拉回云端有而本地没有的简历
   useEffect(() => {
     const stored = getSyncKey()
@@ -113,8 +123,8 @@ export default function UserCenter() {
         setCloudMap(new Map(entries.map((e) => [e.id, e])))
         const pulled = await pullMissingToLocal(stored, entries)
         if (cancelled) return
+        refresh()
         if (pulled > 0) {
-          refresh()
           toast({ title: "云同步完成", description: `已从云端拉取 ${pulled} 份简历` })
         }
       } catch (e) {
@@ -131,7 +141,7 @@ export default function UserCenter() {
       }
     })()
     return () => { cancelled = true }
-  }, [refresh, toast, pullMissingToLocal])
+  }, [pullMissingToLocal, refresh, toast])
 
   /** 验证并保存密钥 */
   const handleSaveKey = async () => {
@@ -139,13 +149,9 @@ export default function UserCenter() {
     if (!key) return
     setKeyVerifying(true)
     try {
-      const entries = await listCloud(key)
+      const { entries, pulled } = await loadCloudToLocal(key)
       setSyncKey(key)
-      setSyncKeyState(key)
-      setCloudMap(new Map(entries.map((e) => [e.id, e])))
       setKeyInput("")
-      const pulled = await pullMissingToLocal(key, entries)
-      if (pulled > 0) refresh()
       toast({
         title: "密钥验证成功",
         description: `云同步已启用${pulled > 0 ? `，已从云端拉取 ${pulled} 份简历` : `（云端 ${entries.length} 份简历）`}`,
@@ -158,6 +164,36 @@ export default function UserCenter() {
       })
     } finally {
       setKeyVerifying(false)
+    }
+  }
+
+  const handleRefreshData = async () => {
+    setDataRefreshing(true)
+    try {
+      refresh()
+      const key = syncKey ?? getSyncKey()
+      if (!key) {
+        toast({ title: "本地数据已刷新", description: `当前共 ${getAllResumes().length} 份简历` })
+        return
+      }
+      const { pulled, entries } = await loadCloudToLocal(key)
+      toast({
+        title: "数据已刷新",
+        description: pulled > 0 ? `已从云端补回 ${pulled} 份简历（云端共 ${entries.length} 份）` : `云端共 ${entries.length} 份简历`,
+      })
+    } catch (e) {
+      if (e instanceof SyncError && e.code === "INVALID_KEY") {
+        clearSyncKey()
+        setSyncKeyState(null)
+        setCloudMap(null)
+        toast({ title: "云同步密钥已失效", description: "密钥验证失败，请重新输入", variant: "destructive" })
+      } else if (e instanceof SyncError && e.code === "UNAVAILABLE") {
+        toast({ title: "云同步服务不可用", description: "当前部署可能未启用 EdgeOne 云函数", variant: "destructive" })
+      } else {
+        toast({ title: "刷新失败", description: e instanceof Error ? e.message : "未知错误", variant: "destructive" })
+      }
+    } finally {
+      setDataRefreshing(false)
     }
   }
 
@@ -389,8 +425,18 @@ export default function UserCenter() {
           <h1 className="text-lg font-semibold">我的简历</h1>
           <Badge variant="secondary">{items.length}</Badge>
         </div>
-        {items.length > 0 && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => void handleRefreshData()}
+            disabled={dataRefreshing || keyVerifying}
+          >
+            <Icon icon={dataRefreshing ? "mdi:loading" : "mdi:refresh"} className={`w-4 h-4 ${dataRefreshing ? "animate-spin" : ""}`} />
+            {connected ? "刷新数据" : "刷新本地数据"}
+          </Button>
+          {items.length > 0 && (
+            <>
             <Input
               placeholder="搜索简历名称"
               value={keyword}
@@ -418,8 +464,9 @@ export default function UserCenter() {
             >
               <Icon icon="mdi:trash-can" className="w-4 h-4" /> 批量删除
             </Button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* 云同步密钥条 */}
