@@ -510,6 +510,7 @@ function ContentRowEditor({ row, onUpdate, onRemove, onUpdateElement, onAddRow, 
                     element={element}
                     onChange={(updates) => onUpdateElement(element.id, updates)}
                     placeholder="输入内容..."
+                    showAiOptimize={row.columns === 1}
                     moduleTitle={moduleTitle}
                   />
                 </div>

@@ -20,6 +20,7 @@ interface RichTextInputProps {
   onChange: (updates: Partial<ModuleContentElement>) => void
   placeholder?: string
   showBorder?: boolean
+  showAiOptimize?: boolean
   /** 所属简历模块标题，作为 AI 优化的语境（可选） */
   moduleTitle?: string
 }
@@ -101,6 +102,7 @@ export default function RichTextInput({
   onChange,
   placeholder = "输入内容...",
   showBorder = true,
+  showAiOptimize = true,
   moduleTitle,
 }: RichTextInputProps) {
   const { registerEditor, unregisterEditor } = useToolbarManager()
@@ -180,7 +182,7 @@ export default function RichTextInput({
         editor={editor}
         placeholder={placeholder}
       />
-      <AiOptimizeButton editor={editor} moduleTitle={moduleTitle} />
+      {showAiOptimize ? <AiOptimizeButton editor={editor} moduleTitle={moduleTitle} /> : null}
     </div>
   )
 }
