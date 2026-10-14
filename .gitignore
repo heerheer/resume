@@ -27,6 +27,9 @@ yarn-error.log*
 # internal planning docs
 .trae/
 
+# local agent workspace (test scripts, screenshots, memory, .env.local)
+.workbuddy/
+
 # vercel
 .vercel
 
