@@ -3,6 +3,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -302,10 +303,10 @@ function ModuleItem({
 
   return (
     <>
-      <div className="border rounded-lg bg-muted/30">
+      <div className={`border rounded-lg transition-colors ${module.hidden ? "bg-muted/10 border-dashed" : "bg-muted/30"}`}>
         {/* 模块头部 */}
         <div
-          className="relative p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+          className={`relative p-3 cursor-pointer hover:bg-muted/50 transition-colors ${module.hidden ? "opacity-60" : ""}`}
           onClick={onToggle}
         >
           <div className="flex items-center gap-3">
@@ -314,10 +315,37 @@ function ModuleItem({
             ) : (
               <div className="w-4 h-4 border border-dashed border-gray-400 rounded-sm" />
             )}
-            <span className="font-medium">{module.title || "未命名模块"}</span>
+            <span className={`font-medium ${module.hidden ? "line-through decoration-muted-foreground/50" : ""}`}>
+              {module.title || "未命名模块"}
+            </span>
+            {module.hidden && (
+              <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground whitespace-nowrap">
+                已隐藏
+              </span>
+            )}
+            {/* 模块开关：仅控制预览/打印渲染，不删除模块数据 */}
+            <div
+              className="ml-auto flex items-center gap-1.5"
+              title={
+                module.hidden
+                  ? "已隐藏：该模块不会出现在预览、打印与导出中（内容保留，点击恢复）"
+                  : "点击隐藏：该模块不会出现在预览、打印与导出中（内容保留）"
+              }
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Icon
+                icon={module.hidden ? "mdi:eye-off-outline" : "mdi:eye-outline"}
+                className="w-4 h-4 text-muted-foreground"
+              />
+              <Switch
+                checked={!module.hidden}
+                onCheckedChange={(checked) => onUpdate({ hidden: !checked })}
+                aria-label="显示该模块"
+              />
+            </div>
             <Icon
               icon={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}
-              className="w-4 h-4 text-muted-foreground ml-auto"
+              className="w-4 h-4 text-muted-foreground"
             />
             <Button
               size="sm"
@@ -372,6 +400,12 @@ function ModuleItem({
                 </Dialog>
               </div>
             </div>
+
+            {/* 隐藏说明 */}
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Icon icon="mdi:information-outline" className="w-3.5 h-3.5 shrink-0" />
+              模块名右侧开关仅控制预览、打印与导出是否显示该模块，不会删除已填内容。
+            </p>
 
             {/* 内容行列表 */}
             <div className="space-y-0.5">

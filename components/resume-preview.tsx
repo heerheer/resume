@@ -58,6 +58,11 @@ export default function ResumePreview({ resumeData }: ResumePreviewProps) {
   const personalInfo = (resumeData.personalInfoSection?.personalInfo || [])
     .slice()
     .sort((a, b) => a.order - b.order);
+  // 模块开关：仅渲染未隐藏的模块。
+  // hidden 只作用于渲染层，不修改数据本身，因此编辑器仍能看到并编辑被隐藏模块的全部内容。
+  const visibleModules = (resumeData.modules || [])
+    .filter((module) => !module.hidden)
+    .sort((a, b) => a.order - b.order);
   const layoutMode = resumeData.personalInfoSection?.layout?.mode ?? "grid";
   const itemsPerRow = resumeData.personalInfoSection?.layout?.itemsPerRow || 2;
   const isInline = layoutMode === "inline";
@@ -462,8 +467,7 @@ export default function ResumePreview({ resumeData }: ResumePreviewProps) {
 
       {/* 简历模块 */}
       <div className="space-y-6">
-        {resumeData.modules
-          .sort((a, b) => a.order - b.order)
+        {visibleModules
           .map((module) => (
             <div key={module.id} className="resume-module">
               <div className="module-title text-lg font-semibold text-foreground border-b border-border pb-2 mb-3 flex items-center gap-2">
@@ -516,13 +520,17 @@ export default function ResumePreview({ resumeData }: ResumePreviewProps) {
       </div>
 
       {/* 空状态提示 */}
-      {resumeData.modules.length === 0 && (
+      {visibleModules.length === 0 && (
         <div className="text-center py-12 text-muted-foreground no-print">
           <Icon
-            icon="mdi:file-document-outline"
+            icon={resumeData.modules.length > 0 ? "mdi:eye-off-outline" : "mdi:file-document-outline"}
             className="w-12 h-12 mx-auto mb-4 opacity-50"
           />
-          <p>暂无简历内容，请在左侧编辑区域添加模块</p>
+          <p>
+            {resumeData.modules.length > 0
+              ? "所有模块均已隐藏，不会出现在预览、打印与导出结果中"
+              : "暂无简历内容，请在左侧编辑区域添加模块"}
+          </p>
         </div>
       )}
     </div>

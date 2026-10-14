@@ -134,6 +134,12 @@ export interface ResumeModule {
   order: number
   /** 模块内容（由多行组成） */
   rows: ModuleContentRow[]
+  /**
+   * 是否隐藏该模块（仅影响渲染/打印，不删除数据）
+   * - 未设置或 false：正常显示
+   * - true：预览、打印、导出（PDF/图片）均不渲染该模块，编辑器中仍保留全部内容
+   */
+  hidden?: boolean
 }
 
 /**
