@@ -176,6 +176,12 @@ export interface StoredResume {
   updatedAt: string
   /** 实际的简历数据 */
   resumeData: ResumeData
+  /**
+   * 备注（可选）：仅用于主页"我的简历"列表区分头像/名称相同的简历
+   * - 不写入简历内容，不参与渲染、打印与导出
+   * - 为空时以简历标题（通常是姓名）作为列表展示主体
+   */
+  note?: string
 }
 
 /** 本地存储使用的 Key */

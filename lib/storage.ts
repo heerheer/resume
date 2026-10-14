@@ -111,6 +111,26 @@ export function createEntryFromData(data: ResumeData): StoredResume {
   return entry
 }
 
+/**
+ * 更新条目备注（仅列表元数据，不影响简历内容）
+ * - 备注为空时清除该字段，列表回退为以标题展示
+ * - 刻意不改动 updatedAt：备注不是简历内容变更，不应影响"更新时间"列与排序
+ */
+export function updateEntryNote(id: string, note: string): StoredResume {
+  const list = readAll()
+  const idx = list.findIndex((r) => r.id === id)
+  if (idx < 0) throw new StorageError("未找到对应的简历条目")
+
+  const trimmed = note.trim()
+  const updated: StoredResume = {
+    ...list[idx],
+    note: trimmed ? trimmed : undefined,
+  }
+  list[idx] = updated
+  writeAll(list)
+  return updated
+}
+
 export function updateEntryData(id: string, data: ResumeData): StoredResume {
   const list = readAll()
   const idx = list.findIndex((r) => r.id === id)

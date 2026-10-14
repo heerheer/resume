@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,7 @@ import { Icon } from "@iconify/react"
 import { useToast } from "@/hooks/use-toast"
 import type { StoredResume } from "@/types/resume"
 import { importFromMagicyanFile } from "@/lib/utils"
-import { StorageError, createEntryFromData, deleteResumes, getAllResumes, loadDefaultTemplate, loadExampleTemplate, upsertResume } from "@/lib/storage"
+import { StorageError, createEntryFromData, deleteResumes, getAllResumes, loadDefaultTemplate, loadExampleTemplate, updateEntryNote, upsertResume } from "@/lib/storage"
 import { createDefaultResumeData } from "@/lib/utils"
 import {
   autoSyncIfEnabled,
@@ -36,6 +36,79 @@ import ExportButton from "@/components/export-button"
 type SortKey = "name" | "createdAt" | "updatedAt"
 type SortDir = "asc" | "desc"
 type RowSyncState = "off" | "synced" | "conflict" | "localOnly"
+
+/**
+ * 备注单元格：在列表内直接编辑
+ * - 回车 / 失焦保存，Esc 取消
+ * - 备注留空则清除，列表回退为以简历标题（姓名）为主
+ */
+function NoteCell({ value, onSave }: { value?: string; onSave: (note: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  // 防止「回车保存」后紧接着的失焦重复保存
+  const settledRef = useRef(false)
+
+  const startEdit = () => {
+    setDraft(value ?? "")
+    settledRef.current = false
+    setEditing(true)
+  }
+
+  const save = () => {
+    if (settledRef.current) return
+    settledRef.current = true
+    setEditing(false)
+    const next = draft.trim()
+    if (next !== (value ?? "")) onSave(next)
+  }
+
+  const cancel = () => {
+    settledRef.current = true
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <Input
+        autoFocus
+        value={draft}
+        maxLength={50}
+        placeholder="备注（可选），如：后端方向"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            save()
+          } else if (e.key === "Escape") {
+            e.preventDefault()
+            cancel()
+          }
+        }}
+        className="h-8 text-xs"
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEdit}
+      title={value ? `${value}（点击编辑备注）` : "点击添加备注（可选，仅用于区分同名简历）"}
+      className="group/note inline-flex w-full items-center gap-1 rounded px-1 py-0.5 text-left transition-colors hover:bg-muted/60"
+    >
+      {value ? (
+        <span className="max-w-[150px] truncate text-xs text-foreground">{value}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground/60">添加备注</span>
+      )}
+      <Icon
+        icon="mdi:pencil-outline"
+        className="w-3 h-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/note:opacity-100"
+      />
+    </button>
+  )
+}
 
 export default function UserCenter() {
   const router = useRouter()
@@ -204,6 +277,8 @@ export default function UserCenter() {
         createdAt: data.createdAt || it.createdAt,
         updatedAt: data.updatedAt || it.updatedAt,
         resumeData: data,
+        // 备注是本地列表元数据，不随云端数据覆盖
+        note: it.note,
       })
       refresh()
       toast({ title: "已使用云端数据", description: `本地已更新：${data.title || "未命名"}` })
@@ -228,8 +303,11 @@ export default function UserCenter() {
   }
 
   const filteredSorted = useMemo(() => {
+    const kw = keyword.trim().toLowerCase()
     const list = items.filter((it) =>
-      !keyword.trim() || it.resumeData.title.toLowerCase().includes(keyword.trim().toLowerCase())
+      !kw ||
+      it.resumeData.title.toLowerCase().includes(kw) ||
+      (it.note ?? "").toLowerCase().includes(kw)
     )
     const sorted = [...list].sort((a, b) => {
       let va: string | number = ""
@@ -344,6 +422,20 @@ export default function UserCenter() {
     }
   }
 
+  /** 保存列表备注（条目级元数据，不写入简历内容、不影响更新时间） */
+  const handleNoteSave = (id: string, note: string) => {
+    try {
+      updateEntryNote(id, note)
+      refresh()
+    } catch (e) {
+      toast({
+        title: "备注保存失败",
+        description: e instanceof Error ? e.message : "未知错误",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleDelete = (ids: string[]) => {
     try {
       deleteResumes(ids)
@@ -392,7 +484,7 @@ export default function UserCenter() {
         {items.length > 0 && (
           <div className="flex items-center gap-2">
             <Input
-              placeholder="搜索简历名称"
+              placeholder="搜索名称或备注"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               className="w-56"
@@ -525,6 +617,9 @@ export default function UserCenter() {
                 <TableHead>
                   <div className="flex items-center justify-start">名称 <SortArrows field="name" /></div>
                 </TableHead>
+                <TableHead className="w-[180px]">
+                  <div className="flex items-center justify-start">备注</div>
+                </TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center">创建时间 <SortArrows field="createdAt" /></div>
                 </TableHead>
@@ -603,6 +698,9 @@ export default function UserCenter() {
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{it.resumeData.title || "未命名"}</TableCell>
+                  <TableCell>
+                    <NoteCell value={it.note} onSave={(note) => handleNoteSave(it.id, note)} />
+                  </TableCell>
                   <TableCell className="text-xs text-center">{new Date(it.createdAt).toLocaleString()}</TableCell>
                   <TableCell className="text-xs text-center">{new Date(it.updatedAt).toLocaleString()}</TableCell>
                   <TableCell className="text-right w-[360px]">
